@@ -28,6 +28,12 @@ void pre_auton()
 	clearLCDLine(1);
 	FlywheelSpeedControllerInit( controller, 0.08, 0, 0, 0.7506, 0.2002, motorPorts, 4 );
 
+	//Completely clear out any previous sensor readings by setting the port to "sensorNone"
+	SensorType[gyro] = sensorNone;
+	delay(1000);
+	//Reconfigure Analog Port as a Gyro sensor and allow time for ROBOTC to calibrate it
+	SensorType[gyro] = sensorGyro;
+	delay(2000);
 }
 
 //////////////////////////////////////////////////////////
@@ -36,23 +42,14 @@ void pre_auton()
 
 //Calculates the number of ticks in one inch of travel based on wheel size
 const float wheelDiameter = 10.4;//cm
-int ticksForCentimeters(float centimeters)
-{
-	return (int)round(centimeters*360.0/(wheelDiameter*PI));
-}
+
 int ticksForInches(float inches)
 {
 	return(int)round(inches*360.0/(wheelDiameter*PI/2.54));
 }
-const float WheelbaseWidth = 34;//cm
-const float WheelbaseLength = 31;//cm
-const float WheelbaseRadius = sqrt(WheelbaseLength*WheelbaseLength + WheelbaseWidth*WheelbaseWidth)/2;
-const float brigander = (cos(atan2(WheelbaseWidth, WheelbaseLength)))*WheelbaseRadius;//cm
-
-float ticksForDegrees(float degrees)
-{
-	return ticksForCentimeters(degreesToRadians(degrees)*brigander);
-}
+//const float WheelbaseWidth = 34;//cm
+//const float WheelbaseLength = 31;//cm
+//const float WheelbaseRadius = sqrt(WheelbaseLength*WheelbaseLength + WheelbaseWidth*WheelbaseWidth)/2;
 
 //Sets Left Drive Train Motors to a power
 void setLeftDriveTrainPower(int power)
@@ -71,7 +68,6 @@ void setRightDriveTrainPower(int power)
 
 int readEncoder(int port){
 	int v = SensorValue[port];
-	//SensorValue[port] = 0;
 	return v;
 }
 
@@ -85,13 +81,9 @@ void driveADistance(float distanceToDrive)
 	int leftDriven = 0;
 	int rightDriven = 0;
 	int goalDistance = ticksForInches(distanceToDrive);
-	int slowThreshold = ticksForInches(6);
-	int slowingPoint = goalDistance - slowThreshold;
 	float Kp = 1.0;
 	bool isLeftDone = leftDriven > goalDistance;
 	bool isRightDone = rightDriven > goalDistance;
-	bool leftIsClose = leftDriven > slowingPoint;
-	bool rightIsClose = rightDriven > slowingPoint;
 	int basePower = 100;
 	while (!isLeftDone || !isRightDone)
 	{
@@ -105,51 +97,55 @@ void driveADistance(float distanceToDrive)
 		isRightDone = rightDriven > goalDistance;
 		int offset = (int)round(Kp * error);
 		offset = bound(offset, -20, 20);
-		rightIsClose = rightDriven > slowingPoint;
-		leftIsClose = leftDriven > slowingPoint;
-
-		setLeftDriveTrainPower( isLeftDone ? 0 : (leftIsClose ? (goalDistance-leftDriven)/slowThreshold : 1) * basePower - offset) ;
-		setRightDriveTrainPower( isRightDone ? 0 : (rightIsClose ? (goalDistance-rightDriven)/slowThreshold : 1) * basePower - offset)  ;
+		setLeftDriveTrainPower( isLeftDone ? 0 : basePower - offset) ;
+		setRightDriveTrainPower( isRightDone ? 0 :   basePower - offset)  ;
 		delay(100);
 	}
 	setLeftDriveTrainPower(0);
 	setRightDriveTrainPower(0);
 }
-
-//Turns an amount
-//90 degrees = 12.5
-void turnaDistance(float degreesToTurn)
+void printGyro()
 {
-	string dispStr;
-	SensorValue[leftEncoders] = 0;
-	SensorValue[rightEncoders] = 0;
-	int error = 0;
-	int leftDriven = 0;
-	int rightDriven = 0;
-	int goalDistance = ticksForDegrees(degreesToTurn);
-	float Kp = 1.0;
-	bool isLeftDone = leftDriven > goalDistance;
-	bool isRightDone = rightDriven < -goalDistance;
-	while (!isLeftDone || !isRightDone)
-	{
-		leftDriven = abs(readEncoder(leftEncoders));
-		rightDriven = abs(readEncoder(rightEncoders));
-		sprintf(dispStr, "%d  %d", leftDriven, rightDriven);
+	string toDisp;
+	SensorValue[gyro] = 0;
+	int gyroValue = SensorValue[gyro];
+	while(true){
+		gyroValue = SensorValue[gyro];
+		sprintf(toDisp, "Gyro: %d", gyroValue);
 		clearLCDLine(0);
-		displayLCDString(0,0,dispStr);
-		error = leftDriven - rightDriven; //+ if left has gone further, - if right has gone further
-		isLeftDone = leftDriven > goalDistance;
-		isRightDone = rightDriven > goalDistance;
-		int offset = abs((int)round(Kp * error));
-		offset = bound(offset, -20, 20);
-		setLeftDriveTrainPower( isLeftDone ? 0 : (50 + offset) );
-		setRightDriveTrainPower( isRightDone ? 0 : (-50 - offset) );
-		delay(100);
+		displayLCDString(0,0,toDisp);
+		delay(300);
 	}
-	setLeftDriveTrainPower(0);
-	setRightDriveTrainPower(0);
-}
 
+}
+//500 = 90 deg
+void turnaDistance(int deciDegreesToTurn)
+{
+	SensorValue[gyro] = 0;
+	int gyroValue = SensorValue[gyro];
+	int basePower = 75;
+	if(deciDegreesToTurn < 0){
+		setLeftDriveTrainPower(basePower);
+		setRightDriveTrainPower(-basePower);
+		while (-gyroValue < -deciDegreesToTurn)
+		{
+			gyroValue = SensorValue[gyro];
+			delay(30);
+		}
+	}
+	else
+	{
+		setLeftDriveTrainPower(-basePower);
+		setRightDriveTrainPower(basePower);
+		while (gyroValue < deciDegreesToTurn)
+		{
+			gyroValue = SensorValue[gyro];
+			delay(30);
+		}
+	}
+	setLeftDriveTrainPower( 0 );
+	setRightDriveTrainPower( 0 );
+}
 
 //Ensures that the flywheel is always begin spun at the speed contained in the global speed variable
 task flywheelSpeedUpdate()
@@ -220,36 +216,34 @@ void intakeIfRightSpeed()
 
 task autonomous()
 {
-	/*if(SensorValue[autoMode] == 0)
+	if(SensorValue[autoMode] == 0)
 	{
-	int startTime = nPgmTime;
-	startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
-	speed = 10;
-	while(nPgmTime - startTime < 8000){
-	intakeIfRightSpeed();
-	startTime = nPgmTime;}
-	driveADistance(80);
+		int startTime = nPgmTime;
+		startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
+		speed = 10;
+		while(nPgmTime - startTime < 8000){
+			intakeIfRightSpeed();
+			startTime = nPgmTime;}
+		driveADistance(80);
 
 	}
 	else
 	{
-	startTask(flywheelSpeedUpdate);
-	speed = 8.5; //Have flywheel at medium speed(for skills, shooting at close goal)
-	motor[chainIntake] = 127;//Intake all the time cuz there is no time to wait
-	motor[bandIntake] = 127;
-	delay(25000);//this will be changed when we learn how long it takes to shoot 32 balls
-	speed = 0; //Save motor power
-	motor[chainIntake] = 0;
-	motor[bandIntake] = 0;
-	turnaDistance(110);
-	driveADistance(100);
-	turnaDistance(359);
-	turnaDistance(15);
-	speed = 8.5;
-	motor[chainIntake] = 127;
-	motor[bandIntake] = 127;
-	}*/
-	turnaDistance(136);
+		startTask(flywheelSpeedUpdate);
+		speed = 8.3; //Have flywheel at medium speed(for skills, shooting at close goal)
+		motor[chainIntake] = 127;//Intake all the time cuz there is no time to wait
+		motor[bandIntake] = 127;
+		delay(32000);//this will be changed when we learn how long it takes to shoot 32 balls
+		speed = 0; //Save motor power
+		motor[chainIntake] = 0;
+		motor[bandIntake] = 0;
+		turnaDistance(-620);
+		driveADistance(100);
+		turnaDistance(400);
+		speed = 8.3;
+		motor[chainIntake] = 127;
+		motor[bandIntake] = 127;
+	}
 }
 
 ////////////////
