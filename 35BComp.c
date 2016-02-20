@@ -220,11 +220,12 @@ task autonomous()
 	{
 		int startTime = nPgmTime;
 		startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
-		speed = 10;
-		while(nPgmTime - startTime < 8000){
+		speed = 9.8;
+		while(true){
 			intakeIfRightSpeed();
-			startTime = nPgmTime;}
-		driveADistance(80);
+			//startTime = nPgmTime;
+		}
+		//driveADistance(80);
 
 	}
 	else
