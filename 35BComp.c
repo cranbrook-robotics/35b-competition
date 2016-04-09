@@ -287,5 +287,7 @@ task usercontrol()
 		if(vexRT[Btn7L]){speed = 5.5;}
 		if(vexRT[Btn7U]){speed = 7.5;}
 		if(vexRT[Btn7R]){speed = 11;}
+		if(vexRT[Btn6U]){speed = 9.5;}
+		if(vexRT[Btn6D]){speed = 8.3;}
 	}
 }
