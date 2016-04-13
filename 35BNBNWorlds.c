@@ -24,142 +24,32 @@ FlywheelSpeedController controller;
 void pre_auton()
 {
 	bStopTasksBetweenModes = true;
-	//bLCDBacklight = true;
-	//clearLCDLine(0);
-	//clearLCDLine(1);
+	bLCDBacklight = true;
+	clearLCDLine(0);
+	clearLCDLine(1);
 
 	tMotor motorPorts[] = { flyFour, flyOneYThree, flyTwo };
-	FlywheelSpeedControllerInit( controller, 0.1, 0.03, 0.0, 1.2889, 0.0925, motorPorts, 3, M393HighSpeed );
+	FlywheelSpeedControllerInit( controller, 0.05, 0.02, 0.0, 1.2889, 0.0925, motorPorts, 3, M393HighSpeed );
 
 	speed = 0;
+	nMotorEncoder[flyFour] = 0;
+	nMotorEncoder[rightOneYThree] = 0;
+	nMotorEncoder[leftOneYThree] = 0;
 
-	////Completely clear out any previous sensor readings by setting the port to "sensorNone"
-	//SensorType[gyro] = sensorNone;
-	//delay(1000);
-	////Reconfigure Analog Port as a Gyro sensor and allow time for ROBOTC to calibrate it
-	//SensorType[gyro] = sensorGyro;
-	//delay(2000);
 }
 
 //////////////////////////////////////////////////////////
 //Define Functions Needed for Operator Control and Auton//
 //////////////////////////////////////////////////////////
 
-////Calculates the number of ticks in one inch of travel based on wheel size
-//const float wheelDiameter = 10.4;//cm
-
-//int ticksForInches(float inches)
-//{
-//	return(int)round(inches*360.0/(wheelDiameter*PI/2.54));
-//}
-////const float WheelbaseWidth = 34;//cm
-////const float WheelbaseLength = 31;//cm
-////const float WheelbaseRadius = sqrt(WheelbaseLength*WheelbaseLength + WheelbaseWidth*WheelbaseWidth)/2;
-
-////Sets Left Drive Train Motors to a power
-//void setLeftDriveTrainPower(int power)
-//{
-//	power = bound(power, -127, 127);
-//	//motor[leftFront] = power;
-//	//motor[leftBack] = power;
-//}
-
-////Sets Right Drive Train Motors to a power
-//void setRightDriveTrainPower(int power)
-//{
-//	power = bound(power, -127, 127);
-//	//motor[rightDrive] = power;
-//}
-
-//int readEncoder(int port){
-//	int v = SensorValue[port];
-//	return v;
-//}
-
-////Takes distanceToDrive (in inches), drives that distance
-//void driveADistance(float distanceToDrive)
-//{
-//	string dispStr;
-//	SensorValue[leftEncoders] = 0;
-//	SensorValue[rightEncoders] = 0;
-//	int error = 0;
-//	int leftDriven = 0;
-//	int rightDriven = 0;
-//	int goalDistance = ticksForInches(distanceToDrive);
-//	float Kp = 1.0;
-//	bool isLeftDone = leftDriven > goalDistance;
-//	bool isRightDone = rightDriven > goalDistance;
-//	int basePower = 100;
-//	while (!isLeftDone || !isRightDone)
-//	{
-//		leftDriven = readEncoder(leftEncoders);
-//		rightDriven = -readEncoder(rightEncoders);
-//		sprintf(dispStr, "%d  %d", leftDriven, rightDriven);
-//		clearLCDLine(0);
-//		displayLCDString(0,0,dispStr);
-//		error = leftDriven - rightDriven; //+ if left has gone further, - if right has gone further
-//		isLeftDone = leftDriven > goalDistance;
-//		isRightDone = rightDriven > goalDistance;
-//		int offset = (int)round(Kp * error);
-//		offset = bound(offset, -20, 20);
-//		setLeftDriveTrainPower( isLeftDone ? 0 : basePower - offset) ;
-//		setRightDriveTrainPower( isRightDone ? 0 :   basePower - offset)  ;
-//		delay(100);
-//	}
-//	setLeftDriveTrainPower(0);
-//	setRightDriveTrainPower(0);
-//}
-//void printGyro()
-//{
-//	string toDisp;
-//	SensorValue[gyro] = 0;
-//	int gyroValue = SensorValue[gyro];
-//	while(true){
-//		gyroValue = SensorValue[gyro];
-//		sprintf(toDisp, "Gyro: %d", gyroValue);
-//		clearLCDLine(0);
-//		displayLCDString(0,0,toDisp);
-//		delay(300);
-//	}
-
-//}
-////500 = 90 deg
-//void turnaDistance(int deciDegreesToTurn)
-//{
-//	SensorValue[gyro] = 0;
-//	int gyroValue = SensorValue[gyro];
-//	int basePower = 75;
-//	if(deciDegreesToTurn < 0){
-//		setLeftDriveTrainPower(basePower);
-//		setRightDriveTrainPower(-basePower);
-//		while (-gyroValue < -deciDegreesToTurn)
-//		{
-//			gyroValue = SensorValue[gyro];
-//			delay(30);
-//		}
-//	}
-//	else
-//	{
-//		setLeftDriveTrainPower(-basePower);
-//		setRightDriveTrainPower(basePower);
-//		while (gyroValue < deciDegreesToTurn)
-//		{
-//			gyroValue = SensorValue[gyro];
-//			delay(30);
-//		}
-//	}
-//	setLeftDriveTrainPower( 0 );
-//	setRightDriveTrainPower( 0 );
-//}
-
 //Ensures that the flywheel is always begin spun at the speed contained in the global speed variable
 task flywheelSpeedUpdate()
 {
 	while(true)
 	{
-		setTargetSpeed(controller, isFlywheelOn ? speed : 0);
+	setTargetSpeed(controller, isFlywheelOn ? speed : 0);
 		update(controller);
-		delay(50);
+		delay(30);
 	}
 }
 
@@ -195,7 +85,7 @@ task flywheelSpeedFromJoystick()
 		bool down = (bool)vexRT[Btn8D];
 		if( (up || down) && nPgmTime - lastSpeedFromJoystickTime > 300 )
 		{
-			float delta = up ? 0.5 : -0.5;
+		float delta = up ? 0.5 : -0.5;
 			speed = bound( speed + delta, 8, 16 );
 			lastSpeedFromJoystickTime = nPgmTime;
 		}
@@ -206,19 +96,58 @@ task flywheelSpeedFromJoystick()
 
 ////In the match autonomous, the balls should only be fired if the speed of the flywheel
 ////	is close enough to the target speed of the flywheel
-//void intakeIfRightSpeed()
-//{
-//	if(abs(speed - controller.measuredSpeed) < 0.3)
-//	{
-//		//motor[chainIntake] = 127;
-//		//motor[bandIntake] = 127;
-//	}
-//	else
-//	{
-//		//motor[chainIntake] = 0;
-//		//motor[bandIntake] = 0;
-//	}
-//}
+void intakeIfRightSpeed()
+{
+	if(abs(speed - getMeasuredSpeed(controller)) < 0.3)
+	{
+		motor[intakeBand] = 127;
+		motor[intakeChain] = 127;
+	}
+	else
+	{
+		motor[intakeChain] = 0;
+		motor[intakeBand] = 0;
+	}
+}
+void setRightDrive (int p)
+{
+	motor[rightOneYThree] = p;
+	motor[rightTwo] = p;
+}
+void setLeftDrive (int p)
+{
+	motor[leftOneYThree] = p;
+	motor[leftTwo] = p;
+}
+//Drives a given number of inches
+void driveADistance(float inchesToDrive)
+{
+	float ticksToDrive = 360 * inchesToDrive / (4 * PI);
+	nMotorEncoder[rightOneYThree] = 0;
+	nMotorEncoder[leftOneYThree] = 0;
+	int rightEncoderCount = 0;
+	int leftEncoderCount = 0;
+	bool rightIsDone = false;
+	bool leftIsDone = false;
+	float Kp = 0.4;
+	while (!rightIsDone || !leftIsDone)
+	{
+		rightIsDone = rightEncoderCount>=ticksToDrive;
+		leftIsDone = leftEncoderCount>=ticksToDrive;
+		rightEncoderCount += -nMotorEncoder[rightOneYThree];
+		nMotorEncoder[rightOneYThree] = 0;
+		leftEncoderCount += nMotorEncoder[leftOneYThree];
+		nMotorEncoder[leftOneYThree] = 0;
+		float error = rightEncoderCount - leftEncoderCount;
+		setRightDrive(rightIsDone ? 0 : 127 - Kp*error);
+		setLeftDrive(leftIsDone ? 0 : 127 - Kp*error);
+	}
+}
+void turnNDegrees(float degreesToTurn)
+{
+
+
+}
 
 ////////////////
 ////Autonomous//
@@ -226,35 +155,21 @@ task flywheelSpeedFromJoystick()
 
 task autonomous()
 {
-	//if(SensorValue[autoMode] == 0)
-	//{
-	//	int startTime = nPgmTime;
-	//	startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
-	//	speed = 9.8;
-	//	while(true){
-	//		intakeIfRightSpeed();
-	//		//startTime = nPgmTime;
-	//	}
-	//	//driveADistance(80);
-
-	//}
-	//else
-	//{
-	//	startTask(flywheelSpeedUpdate);
-	//	speed = 8.3; //Have flywheel at medium speed(for skills, shooting at close goal)
-	//	//motor[chainIntake] = 127;//Intake all the time cuz there is no time to wait
-	//	//motor[bandIntake] = 127;
-	//	delay(32000);//this will be changed when we learn how long it takes to shoot 32 balls
-	//	speed = 0; //Save motor power
-	//	//motor[chainIntake] = 0;
-	//	//motor[bandIntake] = 0;
-	//	turnaDistance(-620);
-	//	driveADistance(100);
-	//	turnaDistance(400);
-	//	speed = 8.3;
-	//	//motor[chainIntake] = 127;
-	//	//motor[bandIntake] = 127;
-	//}
+	if(SensorValue[autoMode] == 0)
+	{
+		int startTime = nPgmTime;
+		startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
+		//Match Auto
+		speed = 16;
+		while(true){
+			intakeIfRightSpeed();
+		}
+	}
+	else
+	{
+		startTask(flywheelSpeedUpdate);
+		//Prog Skills
+	}
 }
 
 ////////////////
@@ -269,25 +184,12 @@ task usercontrol()
 
 	while(true){
 
-		//speed = bound(speed,0,11); //Ensure speed is legal
-
 		////LEDs
-		//if(speed <= 3.3){SensorValue[redLED] = 1;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 0;}
-		//else if(speed <= 6.6){SensorValue[redLED] = 0;SensorValue[yellowLED] = 1;SensorValue[greenLED] = 0;}
-		//else{SensorValue[redLED] = 0;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 1;}
-
-		//Band Intake Control
-		//if(vexRT[Btn6U]){motor[intakeBand] = 127;} //right shoulder button controls intakes together
-		//else if(vexRT[Btn6D]){motor[intakeBand] = -127;}
-		//else {motor[intakeBand] = 0;}
+		if(speed <= 11){SensorValue[redLED] = 1;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 0;}
+		else if(speed <= 14){SensorValue[redLED] = 0;SensorValue[yellowLED] = 1;SensorValue[greenLED] = 0;}
+		else{SensorValue[redLED] = 0;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 1;}
 
 		motor[intakeBand] = buttonsToPower(Btn6D, Btn6U);
-
-		//Chain Intake Control
-		//if(vexRT[Btn5U]){motor[intakeChain] = 127;} //right shoulder button controls intakes together
-		//else if(vexRT[Btn5D]){motor[intakeChain] = -127;}
-		//else {motor[intakeChain] = 0;}
-
 		motor[intakeChain] = buttonsToPower(Btn5D, Btn5U);
 
 		//Drive Train
@@ -296,28 +198,15 @@ task usercontrol()
 		motor[rightOneYThree] = vexRT[Ch2];
 		motor[rightTwo] = vexRT[Ch2];
 
-		//if(vexRT[Btn8U])
-		//{
-		//	motor[flyOneYThree] = 127;
-		//	motor[flyTwo] = 127;
-		//	motor[flyFour] = 127;
-		//}
-		//if(vexRT[Btn8D])
-		//{
-		//	motor[flyOneYThree] = 0;
-		//	motor[flyTwo] = 0;
-		//	motor[flyFour] = 0;
-		//}
-
 
 		//Set Flywheel Speed to Presets
-		//if(vexRT[Btn7D]){speed = 0;}
-		//if(vexRT[Btn7L]){speed = 5.5;}
-		//if(vexRT[Btn7U]){speed = 7.5;}
-		//if(vexRT[Btn7R]){speed = 11;}
-		//if(vexRT[Btn6U]){speed = 9.5;}
-		//if(vexRT[Btn6D]){speed = 8.3;}
+		if(vexRT[Btn7D]){speed = 10;}
+		if(vexRT[Btn7L]){speed = 12;}
+		if(vexRT[Btn7U]){speed = 14;}
+		if(vexRT[Btn7R]){speed = 16;}
 
 		delay(15);
 	}
 }
+
+// SUCK CHOOOOODEE!!!!
