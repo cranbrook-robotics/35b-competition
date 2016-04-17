@@ -29,12 +29,19 @@ void pre_auton()
 	clearLCDLine(1);
 
 	tMotor motorPorts[] = { flyFour, flyOneYThree, flyTwo };
-	FlywheelSpeedControllerInit( controller, 0.05, 0.02, 0.0, 1.2889, 0.0925, motorPorts, 3, M393HighSpeed );
+	FlywheelSpeedControllerInit( controller, 2.0, 0.02, 0.0, 1.2889, 0.0925, motorPorts, 3, M393HighSpeed );
 
 	speed = 0;
 	nMotorEncoder[flyFour] = 0;
 	nMotorEncoder[rightOneYThree] = 0;
 	nMotorEncoder[leftOneYThree] = 0;
+
+	//Completely clear out any previous sensor readings by setting the port to "sensorNone"
+	SensorType[gyro] = sensorNone;
+	delay(1000);
+	//Reconfigure Analog Port as a Gyro sensor and allow time for ROBOTC to calibrate it
+	SensorType[gyro] = sensorGyro;
+	delay(2000);
 
 }
 
@@ -47,7 +54,7 @@ task flywheelSpeedUpdate()
 {
 	while(true)
 	{
-	setTargetSpeed(controller, isFlywheelOn ? speed : 0);
+		setTargetSpeed(controller, isFlywheelOn ? speed : 0);
 		update(controller);
 		delay(30);
 	}
@@ -85,7 +92,7 @@ task flywheelSpeedFromJoystick()
 		bool down = (bool)vexRT[Btn8D];
 		if( (up || down) && nPgmTime - lastSpeedFromJoystickTime > 300 )
 		{
-		float delta = up ? 0.5 : -0.5;
+			float delta = up ? 0.5 : -0.5;
 			speed = bound( speed + delta, 8, 16 );
 			lastSpeedFromJoystickTime = nPgmTime;
 		}
@@ -129,32 +136,63 @@ void driveADistance(float inchesToDrive)
 	int leftEncoderCount = 0;
 	bool rightIsDone = false;
 	bool leftIsDone = false;
-	float Kp = 0.4;
+	float Kp = 7.0;
+	SensorValue[gyro] = 0;
+	int gyroReading = SensorValue[gyro];
 	while (!rightIsDone || !leftIsDone)
 	{
 		rightIsDone = rightEncoderCount>=ticksToDrive;
 		leftIsDone = leftEncoderCount>=ticksToDrive;
-		rightEncoderCount += -nMotorEncoder[rightOneYThree];
+		gyroReading = SensorValue[gyro];
+		rightEncoderCount += nMotorEncoder[rightOneYThree];
 		nMotorEncoder[rightOneYThree] = 0;
 		leftEncoderCount += nMotorEncoder[leftOneYThree];
 		nMotorEncoder[leftOneYThree] = 0;
-		float error = rightEncoderCount - leftEncoderCount;
+		//float error = rightEncoderCount - leftEncoderCount;
+		float error = gyroReading;
 		setRightDrive(rightIsDone ? 0 : 127 - Kp*error);
-		setLeftDrive(leftIsDone ? 0 : 127 - Kp*error);
+		setLeftDrive(leftIsDone ? 0 : 127 + Kp*error);
 	}
 }
-void turnNDegrees(float degreesToTurn)
+void turnRight(float degreesToTurn)
 {
-
-
+	int deciDegreesToTurn = degreesToTurn * 10;
+	SensorValue[gyro] = 0;
+	int gyroReading = -SensorValue[gyro];
+	while (gyroReading < deciDegreesToTurn)
+	{
+		gyroReading = -SensorValue[gyro];
+		setRightDrive(-50);
+		setLeftDrive(50);
+	}
+	setRightDrive(0);
+	setLeftDrive(0);
 }
 
+void turnLeft(float degreesToTurn)
+{
+	int deciDegreesToTurn = degreesToTurn * 70/9;
+	SensorValue[gyro] = 0;
+	int gyroReading = SensorValue[gyro];
+	while (gyroReading < deciDegreesToTurn)
+	{
+		gyroReading = SensorValue[gyro];
+		setRightDrive(50);
+		setLeftDrive(-50);
+	}
+	setRightDrive(0);
+	setLeftDrive(0);
+}
 ////////////////
 ////Autonomous//
 ////////////////
 
 task autonomous()
 {
+	driveADistance(60);
+	turnLeft(90);
+	delay(5000);
+	turnRight(90);
 	if(SensorValue[autoMode] == 0)
 	{
 		int startTime = nPgmTime;
@@ -210,3 +248,4 @@ task usercontrol()
 }
 
 // SUCK CHOOOOODEE!!!!
+// ^^ That should fix it.
