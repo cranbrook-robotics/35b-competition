@@ -12,15 +12,27 @@
 ////////////////////////////////
 //Global Variable Declarations//
 ////////////////////////////////
-
+//Swag
 float speed = 0; //Speed of the output shaft of Flywheel motors in radians per second
 bool isFlywheelOn = false;
 FlywheelSpeedController controller;
 
+#define A 1.2889
+#define B 0.0925
+#define Kq 0.1
+#define Ki 0.02
+#define Kd 0.0
+
+
 /////////////////////////////////////////////////////////
 //Pre-Autonomous Functions - Initializes most variables//
 /////////////////////////////////////////////////////////
+void resetDriveEncoders()
+{
+	nMotorEncoder[rightOneYThree] = 0;
+	nMotorEncoder[leftOneYThree] = 0;
 
+}
 void pre_auton()
 {
 	bStopTasksBetweenModes = true;
@@ -29,12 +41,11 @@ void pre_auton()
 	clearLCDLine(1);
 
 	tMotor motorPorts[] = { flyFour, flyOneYThree, flyTwo };
-	FlywheelSpeedControllerInit( controller, 2.0, 0.02, 0.0, 1.2889, 0.0925, motorPorts, 3, M393HighSpeed );
+	FlywheelSpeedControllerInit( controller, Kq, Ki, Kd, A, B, motorPorts, 3, M393HighSpeed );
 
 	speed = 0;
+	resetDriveEncoders();
 	nMotorEncoder[flyFour] = 0;
-	nMotorEncoder[rightOneYThree] = 0;
-	nMotorEncoder[leftOneYThree] = 0;
 
 	//Completely clear out any previous sensor readings by setting the port to "sensorNone"
 	SensorType[gyro] = sensorNone;
@@ -100,21 +111,28 @@ task flywheelSpeedFromJoystick()
 		delay(15);
 	}
 }
-
+void intake(int p)
+{
+	motor[intakeBand] = p;
+	motor[intakeChain] = p;
+}
 ////In the match autonomous, the balls should only be fired if the speed of the flywheel
 ////	is close enough to the target speed of the flywheel
-void intakeIfRightSpeed()
+void intakeIfRightSpeed(int time)
 {
-	if(abs(speed - getMeasuredSpeed(controller)) < 0.3)
+	int startTime = nPgmTime;
+	while (nPgmTime < startTime + time)
 	{
-		motor[intakeBand] = 127;
-		motor[intakeChain] = 127;
+		if(abs(speed - getMeasuredSpeed(controller)) < 0.3)
+		{
+			intake(127);
+		}
+		else
+		{
+			intake(0);
+		}
 	}
-	else
-	{
-		motor[intakeChain] = 0;
-		motor[intakeBand] = 0;
-	}
+	intake(0);
 }
 void setRightDrive (int p)
 {
@@ -132,11 +150,9 @@ void driveADistance(float inchesToDrive)
 	float ticksToDrive = 360 * inchesToDrive / (4 * PI);
 	nMotorEncoder[rightOneYThree] = 0;
 	nMotorEncoder[leftOneYThree] = 0;
-	int rightEncoderCount = 0;
-	int leftEncoderCount = 0;
-	bool rightIsDone = false;
-	bool leftIsDone = false;
-	float Kp = 7.0;
+	int rightEncoderCount = 0, leftEncoderCount = 0;
+	bool rightIsDone = false, leftIsDone = false;
+	float Kp = 0.5;
 	SensorValue[gyro] = 0;
 	int gyroReading = SensorValue[gyro];
 	while (!rightIsDone || !leftIsDone)
@@ -145,13 +161,12 @@ void driveADistance(float inchesToDrive)
 		leftIsDone = leftEncoderCount>=ticksToDrive;
 		gyroReading = SensorValue[gyro];
 		rightEncoderCount += nMotorEncoder[rightOneYThree];
-		nMotorEncoder[rightOneYThree] = 0;
 		leftEncoderCount += nMotorEncoder[leftOneYThree];
-		nMotorEncoder[leftOneYThree] = 0;
+		resetDriveEncoders();
 		//float error = rightEncoderCount - leftEncoderCount;
 		float error = gyroReading;
-		setRightDrive(rightIsDone ? 0 : 127 - Kp*error);
-		setLeftDrive(leftIsDone ? 0 : 127 + Kp*error);
+		setRightDrive(rightIsDone ? 0 : 75 - Kp*error);
+		setLeftDrive(leftIsDone ? 0 : 75 + Kp*error);
 	}
 }
 void turnRight(float degreesToTurn)
@@ -171,7 +186,7 @@ void turnRight(float degreesToTurn)
 
 void turnLeft(float degreesToTurn)
 {
-	int deciDegreesToTurn = degreesToTurn * 70/9;
+	int deciDegreesToTurn = degreesToTurn * 10;
 	SensorValue[gyro] = 0;
 	int gyroReading = SensorValue[gyro];
 	while (gyroReading < deciDegreesToTurn)
@@ -183,31 +198,67 @@ void turnLeft(float degreesToTurn)
 	setRightDrive(0);
 	setLeftDrive(0);
 }
+
+void redNet()
+{
+	driveADistance(18);
+	turnLeft(45);
+	intake(127);
+	driveADistance(36);
+	intake(-127);
+	delay(100);
+	intake(0);
+	speed = 12;
+	isFlywheelOn = true;
+	startTask(flywheelSpeedUpdate);
+	intakeIfRightSpeed(6000);
+	speed = 0;
+	intake(127);
+	driveADistance(36);
+	intake(0);
+	turnRight(5);
+	isFlywheelOn = true;
+	speed = 10.5;
+	intakeIfRightSpeed(10000);
+}
+void blueNet()
+{
+	driveADistance(18);
+	turnRight(36);
+	intake(127);
+	driveADistance(36);
+	intake(-127);
+	delay(120);
+	intake(0);
+	speed = 12;
+	isFlywheelOn = true;
+	startTask(flywheelSpeedUpdate);
+	intakeIfRightSpeed(6000);
+	speed = 0;
+	intake(127);
+	driveADistance(36);
+	intake(0);
+	turnLeft(1);
+	isFlywheelOn = true;
+	speed = 10.5;
+	intakeIfRightSpeed(10000);
+}
+void progSkillsCross()
+{
+	turnRight(70);
+	driveADistance(96);
+	turnLeft(70);
+
+}
 ////////////////
 ////Autonomous//
 ////////////////
 
 task autonomous()
 {
-	driveADistance(60);
-	turnLeft(90);
-	delay(5000);
-	turnRight(90);
-	if(SensorValue[autoMode] == 0)
-	{
-		int startTime = nPgmTime;
-		startTask(flywheelSpeedUpdate); //Starts the Flywheel at this speed
-		//Match Auto
-		speed = 16;
-		while(true){
-			intakeIfRightSpeed();
-		}
-	}
-	else
-	{
-		startTask(flywheelSpeedUpdate);
-		//Prog Skills
-	}
+	//redNet();
+	//progSkillsCross();
+	blueNet();
 }
 
 ////////////////
@@ -224,28 +275,23 @@ task usercontrol()
 
 		////LEDs
 		if(speed <= 11){SensorValue[redLED] = 1;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 0;}
-		else if(speed <= 14){SensorValue[redLED] = 0;SensorValue[yellowLED] = 1;SensorValue[greenLED] = 0;}
-		else{SensorValue[redLED] = 0;SensorValue[yellowLED] = 0;SensorValue[greenLED] = 1;}
+		SensorValue[redLED] = (speed <= 11 ? 1 : 0);
+		SensorValue[greenLED] = (speed > 14 ? 1 : 0);
+		SensorValue[yellowLED] = (SensorValue[redLED] + SensorValue[greenLED] == 0 ? 1 : 0);
 
-		motor[intakeBand] = buttonsToPower(Btn6D, Btn6U);
-		motor[intakeChain] = buttonsToPower(Btn5D, Btn5U);
+		motor[intakeBand] = buttonsToPower(Btn6DXmtr2, Btn6UXmtr2);
+		motor[intakeChain] = buttonsToPower(Btn5DXmtr2, Btn5UXmtr2);
 
 		//Drive Train
-		motor[leftOneYThree] = vexRT[Ch3];
-		motor[leftTwo] = vexRT[Ch3];
-		motor[rightOneYThree] = vexRT[Ch2];
-		motor[rightTwo] = vexRT[Ch2];
+		setLeftDrive(vexRT[Ch3]);
+		setRightDrive(vexRT[Ch2]);
 
 
 		//Set Flywheel Speed to Presets
-		if(vexRT[Btn7D]){speed = 10;}
-		if(vexRT[Btn7L]){speed = 12;}
-		if(vexRT[Btn7U]){speed = 14;}
+		if(vexRT[Btn7L]){speed = 10.5;}
+		if(vexRT[Btn7U]){speed = 12;}
 		if(vexRT[Btn7R]){speed = 16;}
 
 		delay(15);
 	}
 }
-
-// SUCK CHOOOOODEE!!!!
-// ^^ That should fix it.
